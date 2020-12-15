@@ -10,27 +10,30 @@
   (is (= {:text "abc-123"}
          (core/parse "abc-123"))))
 
-(deftest syntax-link
-  (is (= {:link [{:text "hello"}]}
-         (core/parse "[[hello]]")))
-  (is (= {:tree [{:text "abc "}
-                 {:link [{:text "hello"}]}
-                 {:text " 123"}]}
-         (core/parse "abc [[hello]] 123"))))
-
 (defn double-bracket-test-cases [open close kind]
-  {(str open "hello roam " open "world" close close)
-   {kind [{:text "hello roam "}
-          {kind [{:text "world"}]}]}
+  {(str open "hello" close)
+   {kind [{:text "hello"}]}
+
+   (str "abc " open "hello" close " 123")
+   {:tree [{:text "abc "}
+           {kind [{:text "hello"}]}
+           {:text " 123"}]}})
+
+(defn nested-double-bracket-test-cases [open close kind]
+  (merge
+   (double-bracket-test-cases open close kind)
+   {(str open open "hello" close " roam world" close)
+   {kind [{kind [{:text "hello"}]}
+          {:text " roam world"}]}
 
    (str open "hello " open "roam" close " world" close)
    {kind [{:text "hello "}
           {kind [{:text "roam"}]}
           {:text " world"}]}
 
-   (str open open "hello" close " roam world" close)
-   {kind [{kind [{:text "hello"}]}
-          {:text " roam world"}]}
+   (str open "hello roam " open "world" close close)
+   {kind [{:text "hello roam "}
+          {kind [{:text "world"}]}]}
 
    (str open open open "three" close " two" close " one" close)
    {kind [{kind [{kind [{:text "three"}]}
@@ -51,39 +54,35 @@
    {:tree [{:text "Nesting! "}
            {kind [{:text "one "}
                   {kind [{:text "two "}
-                         {kind [{:text "three"}]}]}]}]}})
+                         {kind [{:text "three"}]}]}]}]}}))
 
-(deftest syntax-link-recursive
-  (doseq [[text tree] (double-bracket-test-cases "[[" "]]" :link)]
+(deftest syntax-link
+  (doseq [[text tree] (nested-double-bracket-test-cases "[[" "]]" :link)]
     (is (= tree (core/parse text)))))
 
 (deftest syntax-ref
-  (doseq [[text tree] (double-bracket-test-cases "((" "))" :ref)]
+  (doseq [[text tree] (nested-double-bracket-test-cases "((" "))" :ref)]
     (is (= tree (core/parse text)))))
 
 (deftest syntax-roam-render
-  (doseq [[text tree] (double-bracket-test-cases "{{" "}}" :roam-render)]
+  (doseq [[text tree] (nested-double-bracket-test-cases "{{" "}}" :roam-render)]
     (is (= tree (core/parse text)))))
 
-(comment
-  (deftest syntax-latex
-    (doseq [[text tree] (double-bracket-test-cases "$$" "$$" :latex)]
-      (is (= tree (core/parse text))))))
+(deftest syntax-latex
+  (doseq [[text tree] (double-bracket-test-cases "$$" "$$" :latex)]
+    (is (= tree (core/parse text)))))
 
-(comment
-  (deftest syntax-highlight
-    (doseq [[text tree] (double-bracket-test-cases "^^" "^^" :highlight)]
-      (is (= tree (core/parse text))))))
+(deftest syntax-highlight
+  (doseq [[text tree] (double-bracket-test-cases "^^" "^^" :highlight)]
+    (is (= tree (core/parse text)))))
 
-(comment
-  (deftest syntax-bold
-    (doseq [[text tree] (double-bracket-test-cases "**" "**" :bold)]
-      (is (= tree (core/parse text))))))
+(deftest syntax-bold
+  (doseq [[text tree] (double-bracket-test-cases "**" "**" :bold)]
+    (is (= tree (core/parse text)))))
 
-(comment
-  (deftest syntax-italic
-    (doseq [[text tree] (double-bracket-test-cases "__" "__" :italic)]
-      (is (= tree (core/parse text))))))
+(deftest syntax-italic
+  (doseq [[text tree] (double-bracket-test-cases "__" "__" :italic)]
+    (is (= tree (core/parse text)))))
 
 (deftest syntax-alias
   (is (= :todo :todo)))
