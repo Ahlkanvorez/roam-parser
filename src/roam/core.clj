@@ -30,7 +30,6 @@
 
 (defn aggregate-groups [accum]
   (->> (reduce (fn [accum d]
-                 (println :reduce accum d)
                  (let [prior (or (last accum) "")]
                    (if (and (string? prior)
                             (string? d))
@@ -48,7 +47,6 @@
   (let [target (open-for end)]
     (loop [stack (conj stack end)
            accum ()]
-      (println :parse-group stack accum)
       (if-let [c (first stack)]
         (cond
           (and (= c target) (not (empty? (butlast accum))))
@@ -64,12 +62,10 @@
 (defn tokens->tree [tokens]
   (loop [accum ()
          tokens (reverse tokens)]
-    (println :tokens->tree accum tokens)
     (if-let [v (first tokens)]
       (cond
         (group-end? v)
         (let [{:keys [node unused]} (parse-group accum v)]
-          (println :subparse {:node node :unused unused})
           (if (nil? node)
             (recur (conj accum v) (rest tokens))
             (if-not (empty? unused)
