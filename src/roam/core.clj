@@ -41,7 +41,7 @@
                accum)
        (mapv (fn [n]
                (if (string? n)
-                 {:text n}
+                 {:text (apply str n)}
                  n)))))
 
 (defn parse-group [stack end]
@@ -51,15 +51,15 @@
       (println :parse-group stack accum)
       (if-let [c (first stack)]
         (cond
-          (= c target)
+          (and (= c target) (not (empty? (butlast accum))))
           {:node {(type-for end) (aggregate-groups (butlast accum))}
-           :rest (rest stack)}
+           :unused (rest stack)}
           :default (recur (rest stack) (conj accum c)))
         (loop [accum accum
                nodes []]
-          (println :accum accum)
-          {:node {:text (apply str accum)}
-           :rest []})))))
+          (if (empty? (remove #{target} accum))
+            {:node nil
+             :unused (apply str accum)}))))))
 
 (defn tokens->tree [tokens]
   (loop [accum ()
@@ -68,13 +68,13 @@
     (if-let [v (first tokens)]
       (cond
         (group-end? v)
-        (let [subparse (parse-group accum v)]
-          (println :subparse subparse)
-          (if-not (empty? (:rest subparse))
-            (recur (conj (:rest subparse) (:node subparse))
-                   (rest tokens))
-            (recur [(:node subparse)]
-                   (rest tokens))))
+        (let [{:keys [node unused]} (parse-group accum v)]
+          (println :subparse {:node node :unused unused})
+          (if (nil? node)
+            (recur (conj accum v) (rest tokens))
+            (if-not (empty? unused)
+              (recur (conj unused node) (rest tokens))
+              (recur (list node) (rest tokens)))))
         :default (recur (conj accum v)
                         (rest tokens)))
       (if (= (count accum) 1)
