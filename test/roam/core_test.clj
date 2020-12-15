@@ -18,64 +18,74 @@
                  {:text " 123"}]}
          (core/parse "abc [[hello]] 123"))))
 
+(defn double-bracket-test-cases [open close kind]
+  {(str open "hello roam " open "world" close close)
+   {kind [{:text "hello roam "}
+          {kind [{:text "world"}]}]}
+
+   (str open "hello " open "roam" close " world" close)
+   {kind [{:text "hello "}
+          {kind [{:text "roam"}]}
+          {:text " world"}]}
+
+   (str open open "hello" close " roam world" close)
+   {kind [{kind [{:text "hello"}]}
+          {:text " roam world"}]}
+
+   (str open open open "three" close " two" close " one" close)
+   {kind [{kind [{kind [{:text "three"}]}
+                 {:text " two"}]}
+          {:text " one"}]}
+
+   (str open open "two " open "three" close close " one" close)
+   {kind [{kind [{:text "two "}
+                 {kind [{:text "three"}]}]}
+          {:text " one"}]}
+
+   (str open "one " open "two " open "three" close close close)
+   {kind [{:text "one "}
+          {kind [{:text "two "}
+                 {kind [{:text "three"}]}]}]}
+
+   (str "Nesting! " open "one " open "two " open "three" close close close)
+   {:tree [{:text "Nesting! "}
+           {kind [{:text "one "}
+                  {kind [{:text "two "}
+                         {kind [{:text "three"}]}]}]}]}})
+
 (deftest syntax-link-recursive
-  (is (= {:link [{:text "hello roam "}
-                 {:link [{:text "world"}]}]}
-         (core/parse "[[hello roam [[world]]]]")))
-  (is (= {:link [{:text "hello "}
-                 {:link [{:text "roam"}]}
-                 {:text " world"}]}
-         (core/parse "[[hello [[roam]] world]]")))
-  (is (= {:link [{:link [{:text "hello"}]}
-                 {:text " roam world"}]}
-         (core/parse "[[[[hello]] roam world]]")))
-  (is (= {:link [{:link [{:link [{:text "three"}]}
-                         {:text " two"}]}
-                 {:text " one"}]}
-         (core/parse "[[[[[[three]] two]] one]]")))
-  (is (= {:link [{:link [{:text "two "}
-                         {:link [{:text "three"}]}]}
-                 {:text " one"}]}
-         (core/parse "[[[[two [[three]]]] one]]")))
-  (is (= {:link [{:text "one "}
-                 {:link [{:text "two "}
-                         {:link [{:text "three"}]}]}]}
-         (core/parse "[[one [[two [[three]]]]]]")))
-  (is (= {:tree [{:text "Nesting! "}
-                 {:link [{:text "one "}
-                         {:link [{:text "two "}
-                                 {:link [{:text "three"}]}]}]}]}
-         (core/parse "Nesting! [[one [[two [[three]]]]]]"))))
+  (doseq [[text tree] (double-bracket-test-cases "[[" "]]" :link)]
+    (is (= tree (core/parse text)))))
 
 (deftest syntax-ref
-  (is (= :todo :todo)))
+  (doseq [[text tree] (double-bracket-test-cases "((" "))" :ref)]
+    (is (= tree (core/parse text)))))
 
 (deftest syntax-roam-render
-  (is (= :todo :todo)))
+  (doseq [[text tree] (double-bracket-test-cases "{{" "}}" :roam-render)]
+    (is (= tree (core/parse text)))))
 
-(deftest syntax-latex
-  (is (= :todo :todo)))
+(comment
+  (deftest syntax-latex
+    (doseq [[text tree] (double-bracket-test-cases "$$" "$$" :latex)]
+      (is (= tree (core/parse text))))))
+
+(comment
+  (deftest syntax-highlight
+    (doseq [[text tree] (double-bracket-test-cases "^^" "^^" :highlight)]
+      (is (= tree (core/parse text))))))
+
+(comment
+  (deftest syntax-bold
+    (doseq [[text tree] (double-bracket-test-cases "**" "**" :bold)]
+      (is (= tree (core/parse text))))))
+
+(comment
+  (deftest syntax-italic
+    (doseq [[text tree] (double-bracket-test-cases "__" "__" :italic)]
+      (is (= tree (core/parse text))))))
 
 (deftest syntax-alias
-  (is (= :todo :todo)))
-
-(deftest syntax-highlight
-  (is (= :todo :todo)))
-
-(deftest syntax-bold
-  (is (= :todo :todo)))
-
-(deftest syntax-italic
-  (is (= :todo :todo)))
-
-(deftest syntax-recursive
-  (is (= :todo :todo)))
-
-(deftest tree-abstraction
-  (is (= :todo :todo)))
-
-(deftest parse-speed
-  ;; Must parse 1000 strings in under 500ms
   (is (= :todo :todo)))
 
 (deftest tree->str

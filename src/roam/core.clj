@@ -2,7 +2,21 @@
   (:require [clojure.string :as string]))
 
 (def group-complement
-  {"]]" "[["})
+  {"]]" "[["
+   "))" "(("
+   "}}" "{{"
+   "$$" "$$"
+   "^^" "^^"
+   "**" "**"
+   "__" "__"})
+
+(def type-for {"]]" :link
+               "))" :ref
+               "}}" :roam-render
+               "$$" :latex
+               "^^" :highlight
+               "**" :bold
+               "__" :italic})
 
 (defn group-start? [s]
   (some #(string/starts-with? s %)
@@ -13,7 +27,6 @@
         (keys group-complement)))
 
 (def open-for (partial get group-complement))
-(def type-for {"]]" :link})
 
 (defn aggregate-groups [accum]
   (->> (reduce (fn [accum d]
