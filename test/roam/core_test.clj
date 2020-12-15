@@ -134,6 +134,21 @@
           (doseq [[text tree] (syntax-nesting-test-cases a b c)]
             (is (= tree (core/parse text)))))))))
 
+(deftest all-together
+  (is (= {:tree [{:text "hello "}
+                 {:link [{:text "world "}
+                         {:ref [{:text "lots "}
+                                {:roam-render [{:text "of "}
+                                               {:bold [{:text "nested"}]}]}
+                                {:text " "}
+                                {:highlight [{:italic [{:text "stuff"}]}
+                                             {:text " here"}]}]}
+                         {:text " "}
+                         {:latex [{:text "really, "}
+                                  {:bold [{:text "lots"}]}]}]}
+                 {:text "!"}]}
+         (core/parse "hello [[world ((lots {{of **nested**}} ^^__stuff__ here^^)) $$really, **lots**$$]]!"))))
+
 (deftest syntax-alias
   (is (= :todo :todo)))
 
@@ -155,4 +170,26 @@
                           {:link [{:link [{:text "enough"}]}
                                   {:text " linking"}]}
                           {:text " for"}]}
-                  {:text " now."}]}))))
+                  {:text " now."}]})))
+  (is (= "hello [[world ((lots {{of **nested**}} ^^__stuff__ here^^)) $$really, **lots**$$]]!"
+         (core/tree->str
+          {:tree [{:text "hello "}
+                  {:link [{:text "world "}
+                          {:ref [{:text "lots "}
+                                 {:roam-render [{:text "of "}
+                                                {:bold [{:text "nested"}]}]}
+                                 {:text " "}
+                                 {:highlight [{:italic [{:text "stuff"}]}
+                                              {:text " here"}]}]}
+                          {:text " "}
+                          {:latex [{:text "really, "}
+                                   {:bold [{:text "lots"}]}]}]}
+                  {:text "!"}]}))))
+
+(def idempotency-test-cases
+  ["this is [[probably [[[[enough]] linking]] for]] now."
+   "hello [[world ((lots {{of **nested**}} ^^__stuff__ here^^)) $$really, **lots**$$]]!"])
+
+(deftest idempotency
+  (doseq [text idempotency-test-cases]
+    (is (= text (-> text core/str->tree core/tree->str)))))

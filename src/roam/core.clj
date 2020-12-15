@@ -10,6 +10,8 @@
    "**" "**"
    "__" "__"})
 
+(def open-for (partial get group-complement))
+
 (def type-for {"]]" :link
                "))" :ref
                "}}" :roam-render
@@ -18,6 +20,8 @@
                "**" :bold
                "__" :italic})
 
+(def close-for-type (apply merge (map (fn [[k v]] {v k}) type-for)))
+
 (defn group-start? [s]
   (some #(string/starts-with? s %)
         (vals group-complement)))
@@ -25,8 +29,6 @@
 (defn group-end? [s]
   (some #(string/starts-with? s %)
         (keys group-complement)))
-
-(def open-for (partial get group-complement))
 
 (defn aggregate-groups [accum]
   (->> (reduce (fn [accum d]
@@ -97,11 +99,12 @@
 (defmulti tree->str (comp first keys))
 
 (defmethod tree->str :text [tree] (:text tree))
-(defmethod tree->str :link [tree]
-  (str "[["
-       (apply str (map tree->str (:link tree)))
-       "]]"))
-(defmethod tree->str :tree [tree]
-  (apply str (map tree->str (:tree tree))))
+(defmethod tree->str :tree [tree] (apply str (map tree->str (:tree tree))))
+(defmethod tree->str :default [tree]
+  (let [kind (first (keys tree))
+        close (close-for-type kind)
+        open (open-for close)]
+    (str open (apply str (map tree->str (kind tree))) close)))
+
 
 (def parse str->tree)
