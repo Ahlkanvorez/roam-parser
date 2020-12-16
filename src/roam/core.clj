@@ -40,9 +40,15 @@
 
 (def close-for-type (apply merge (map (fn [[k v]] {v k}) type-for)))
 
+(defn stringify-quoted-tokens [token]
+  (if (and (seq? token) (= \\ (first token)))
+    (apply str (reverse token))
+    token))
+
 (defn concatenate-adjacent-strings [accum d]
   (let [prior (or (last accum) "")]
-    (if (and (or (char? prior) (string? prior)) (char? d))
+    (if (and (or (char? prior) (string? prior))
+             (or (char? d) (string? d)))
       (conj (vec (butlast accum)) (str d prior))
       (conj accum d))))
 
@@ -53,6 +59,7 @@
 
 (defn aggregate-groups [accum]
   (->> accum
+       (map stringify-quoted-tokens)
        (reduce concatenate-adjacent-strings [])
        (remove nil?)
        (mapv str->text-nodes)))
@@ -120,12 +127,14 @@
           (recur (rest stack) (conj accum (first stack))))))))
 
 (defn finalize-parse [accum]
-  (if (= (count accum) 1)
-    (first accum)
-    (let [aggregate (aggregate-groups (reverse accum))]
-      (if (= (count aggregate) 1)
-        (first aggregate)
-        {:tree aggregate}))))
+  (cond (empty? accum) {:text ""}
+        (= (count accum) 1) (if (map? (first accum))
+                              (first accum)
+                              {:text (apply str accum)})
+        :default (let [aggregate (aggregate-groups (reverse accum))]
+                   (if (= (count aggregate) 1)
+                     (first aggregate)
+                     {:tree aggregate}))))
 
 (defn tokens->tree [tokens]
   (loop [accum ()
@@ -146,7 +155,8 @@
 (defn str->tokens [s]
   (loop [tokens []
          s (seq s)]
-    (cond (contains? three-char-tokens (take 3 s))
+    (cond (= \\ (first s)) (recur (conj tokens (take 2 s)) (drop 2 s))
+          (contains? three-char-tokens (take 3 s))
           (recur (conj tokens (take 3 s)) (drop 3 s))
           (empty? s) tokens
           :default (recur (conj tokens (first s)) (rest s)))))

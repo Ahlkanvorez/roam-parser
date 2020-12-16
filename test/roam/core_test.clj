@@ -49,12 +49,18 @@ Aliases inside aliases
 ```"))))
 
 (deftest raw-text
+  (is (= {:text ""}
+         (core/parse "")))
+  (is (= {:text " "}
+         (core/parse " ")))
   (is (= {:text "abc"}
          (core/parse "abc")))
   (is (= {:text "123"}
          (core/parse "123")))
   (is (= {:text "abc-123"}
-         (core/parse "abc-123"))))
+         (core/parse "abc-123")))
+  (is (= {:text "ab\\\"c12\\\"3"}
+         (core/parse "ab\\\"c12\\\"3"))))
 
 (defn double-bracket-test-cases [open close kind]
   {(str open "hello" close)
@@ -262,6 +268,18 @@ Aliases inside aliases
                                 {:text " 3"}]}
                  {:text "d e"}]}
          (core/parse "c d```1 `[[123]]` 3```d e"))))
+
+(deftest syntax-escapes
+  (is (= {:link [{:text "hello "}
+                 {:quote [{:text "quoted \\\"and \\`escaped\\`\\\" world"}]}
+                 {:text " with links"}]}
+         (core/parse "[[hello \"quoted \\\"and \\`escaped\\`\\\" world\" with links]]")))
+  (is (= {:block-quote [{:text "Syntax quotes have "}
+                        {:bold [{:text "\\`"}]}
+                        {:text " before and after them "}
+                        {:bold [{:text "\\`"}]}
+                        {:text " like that"}]}
+         (core/parse "```Syntax quotes have **\\`** before and after them **\\`** like that```"))))
 
 (deftest tree->str
   (is (= "abc"
