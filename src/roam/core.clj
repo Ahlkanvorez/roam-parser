@@ -11,6 +11,7 @@
    (seq "__") (seq "__")
    (seq "```") (seq "```")
    (seq "`") (seq "`")
+   (seq "\"") (seq "\"")
    (seq ")") (seq "[")})
 
 (def three-char-tokens (set (filter #(= 3 (count %)) (keys group-complement))))
@@ -34,6 +35,7 @@
                (seq "__") :italic
                (seq "```") :block-quote
                (seq "`") :syntax-quote
+               (seq "\"") :quote
                (seq ")") :alias})
 
 (def close-for-type (apply merge (map (fn [[k v]] {v k}) type-for)))

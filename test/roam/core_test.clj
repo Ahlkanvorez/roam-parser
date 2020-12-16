@@ -178,7 +178,8 @@ Aliases inside aliases
         roam-render ["{{" "}}" :roam-render]
         syntax-quote ["`" "`" :syntax-quote]
         block-quote ["```" "```" :block-quote]
-        groups [latex highlight bold italic link ref roam-render]
+        quote ["\"" "\"" :quote]
+        groups [latex highlight bold italic link ref roam-render quote]
         ;; It doesn't make sense to nest syntax-quotes & block-quotes together,
         ;; so split test cases into two groups, one with each & not the other.
         groups-a (conj groups syntax-quote)
