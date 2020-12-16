@@ -1,0 +1,14 @@
+{:deps {:aliases [:dev]}
+ :builds
+ {:test {:target :node-test
+         :output-to "out/node-test.js"
+         :ns-regexp "-test$"
+         :autorun true}
+  :app {:target :browser
+        :output-dir "resources/public/js"
+        :asset-path "/js"
+        :modules {:main {:entries [roam.core]
+                         :init-fn roam.core/mount-root}}
+        :devtools
+        {:http-root "resources/public"
+         :http-port 8080}}}}

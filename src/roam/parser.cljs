@@ -1,4 +1,4 @@
-(ns roam.core
+(ns roam.parser
   (:require [clojure.string :as string]))
 
 (def group-complement
