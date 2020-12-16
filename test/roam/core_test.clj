@@ -3,6 +3,16 @@
             [roam.core :as core]))
 
 (deftest roam-examples
+  (is (= {:tree [{:text "The parser can parse all of Roam's major syntax at least "}
+                 {:link [{:text "Nested "}
+                         {:link [{:text "Links"}]}]}
+                 {:text " and "}
+                 {:highlight [{:bold [{:text "bold highlights"}]}]}
+                 {:text " and "}
+                 {:syntax-quote [{:alias {:left [{:text "html roam"}]
+                                          :right [{:link [{:text "Aliases"}]}]}}]}
+                 {:text "all the ones we haven't done yet as well"}]}
+         (core/parse "The parser can parse all of Roam's major syntax at least [[Nested [[Links]]]] and ^^**bold highlights**^^ and `[html roam]([[Aliases]])`all the ones we haven't done yet as well")))
   (is (= {:alias {:left [{:text "!"}
                          {:alias {:left [{:text "img"}]
                                   :right [{:text "image-as-alias.com"}]}}]
@@ -13,7 +23,30 @@
                         {:roam-render [{:text "side"}]}
                         {:text " of "}
                         {:roam-render [{:text "curly braces"}]}]}
-         (core/parse "{{{{curly braces}} in{{side}} of {{curly braces}}}}"))))
+         (core/parse "{{{{curly braces}} in{{side}} of {{curly braces}}}}")))
+  (is (= {:tree [{:text "Specifically "}
+                 {:block-quote [{:text "javascript\n\nAliases inside aliases\n>   \n  "}
+                                {:alias {:left [{:text "!"}
+                                                {:alias {:left [{:text "img"}]
+                                                         :right [{:text "image-as-alias.com"}]}}]
+                                         :right [{:text "www.roamresearch.com"}]}}
+                                {:text "\n\n"}
+                                {:roam-render [{:roam-render [{:text "curly braces"}]}
+                                               {:text " in"}
+                                               {:roam-render [{:text "side"}]}
+                                               {:text " of "}
+                                               {:roam-render [{:text "curly braces"}]}]}
+                                {:text "\n\n\n"}]}]}
+         (core/parse "Specifically ```javascript
+
+Aliases inside aliases
+>   
+  [![img](image-as-alias.com)](www.roamresearch.com)
+
+{{{{curly braces}} in{{side}} of {{curly braces}}}}
+
+
+```"))))
 
 (deftest raw-text
   (is (= {:text "abc"}
@@ -135,7 +168,7 @@
                      {kind2 [{:text "two "}
                              {kind3 [{:text "three"}]}]}]}]}}))
 
-(deftest syntax-nesting
+(def combination-test-inputs
   (let [latex ["$$" "$$" :latex]
         highlight ["^^" "^^" :highlight]
         bold ["**" "**" :bold]
@@ -143,12 +176,25 @@
         link ["[[" "]]" :link]
         ref ["((" "))" :ref]
         roam-render ["{{" "}}" :roam-render]
-        groups [latex highlight bold italic link ref roam-render]]
-    (doseq [a groups]
-      (doseq [b (remove #{a} groups)]
-        (doseq [c (remove #{a b} groups)]
-          (doseq [[text tree] (syntax-nesting-test-cases a b c)]
-            (is (= tree (core/parse text)))))))))
+        syntax-quote ["`" "`" :syntax-quote]
+        block-quote ["```" "```" :block-quote]
+        groups [latex highlight bold italic link ref roam-render]
+        ;; It doesn't make sense to nest syntax-quotes & block-quotes together,
+        ;; so split test cases into two groups, one with each & not the other.
+        groups-a (conj groups syntax-quote)
+        groups-b (conj groups block-quote)]
+    (map first
+         (flatten
+          (for [groups [groups-a groups-b]]
+            (for [a groups]
+              (for [b (remove #{a} groups)]
+                (for [c (remove #{a b} groups)]
+                  #{[a b c]}))))))))
+
+(deftest syntax-nesting
+  (doseq [[a b c] combination-test-inputs]
+    (doseq [[text tree] (syntax-nesting-test-cases a b c)]
+      (is (= tree (core/parse text))))))
 
 (deftest all-together
   (is (= {:tree [{:text "hello "}
@@ -200,6 +246,22 @@
                                    :right [{:text "alias"}]}}]}}
          (core/parse "[[Not a](link)](its [an](alias))"))))
 
+(deftest syntax-blockquote
+  (is (= {:block-quote [{:text "abc "} {:link [{:text "123"}]} {:text " def"}]}
+         (core/parse "```abc [[123]] def```")))
+
+  (is (= {:tree [{:text "x"}
+                 {:block-quote [{:text "y"}]}
+                 {:text "z"}]}
+         (core/parse "x```y```z")))
+
+  (is (= {:tree [{:text "c d"}
+                 {:block-quote [{:text "1 "}
+                                {:syntax-quote [{:link [{:text "123"}]}]}
+                                {:text " 3"}]}
+                 {:text "d e"}]}
+         (core/parse "c d```1 `[[123]]` 3```d e"))))
+
 (deftest tree->str
   (is (= "abc"
          (core/tree->str {:text "abc"})))
@@ -239,16 +301,6 @@
    "hello [[world ((lots {{of **nested**}} ^^__stuff__ here^^)) $$really, **lots**$$]]!"])
 
 (deftest invertability
-  (let [latex ["$$" "$$" :latex]
-        highlight ["^^" "^^" :highlight]
-        bold ["**" "**" :bold]
-        italic ["__" "__" :italic]
-        link ["[[" "]]" :link]
-        ref ["((" "))" :ref]
-        roam-render ["{{" "}}" :roam-render]
-        groups [latex highlight bold italic link ref roam-render]]
-    (doseq [a groups]
-      (doseq [b (remove #{a} groups)]
-        (doseq [c (remove #{a b} groups)]
-          (doseq [[text _tree] (syntax-nesting-test-cases a b c)]
-            (is (= text (-> text core/str->tree core/tree->str)))))))))
+  (doseq [[a b c] combination-test-inputs]
+    (doseq [[text _tree] (syntax-nesting-test-cases a b c)]
+      (is (= text (-> text core/str->tree core/tree->str))))))

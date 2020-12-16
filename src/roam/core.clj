@@ -9,7 +9,11 @@
    (seq "^^") (seq "^^")
    (seq "**") (seq "**")
    (seq "__") (seq "__")
+   (seq "```") (seq "```")
+   (seq "`") (seq "`")
    (seq ")") (seq "[")})
+
+(def three-char-tokens (set (filter #(= 3 (count %)) (keys group-complement))))
 
 (def group-trios
   {(seq ")") {:open (seq "[")
@@ -18,13 +22,6 @@
 
 (defn middle-token-for [trio-close-token]
   (get-in group-trios [trio-close-token :middle]))
-
-(def two-char-tokens
-  (set (concat (keys group-complement)
-               (vals group-complement)
-               (filter #(= 2 (count %)) (map :open (vals group-trios)))
-               (filter #(= 2 (count %)) (map :middle (vals group-trios)))
-               (filter #(= 2 (count %)) (map :close (vals group-trios))))))
 
 (def open-for (partial get group-complement))
 
@@ -35,6 +32,8 @@
                (seq "^^") :highlight
                (seq "**") :bold
                (seq "__") :italic
+               (seq "```") :block-quote
+               (seq "`") :syntax-quote
                (seq ")") :alias})
 
 (def close-for-type (apply merge (map (fn [[k v]] {v k}) type-for)))
@@ -86,10 +85,26 @@
          (has-trio-group-middle coll (middle-token-for close))
          true)))
 
+(defn node-terminus [s endpoint?]
+  (loop [tokens [[(take 3 s) 3] [(take 2 s) 2] [(take 1 s) 1] [(first s) 1]]]
+    (when-let [[token size] (first tokens)]
+      (if (endpoint? token)
+        {:token token :size size}
+        (recur (rest tokens))))))
+
 (defn node-start [tokens open close coll]
-  (cond (at-node-start? (take 2 tokens) open close coll) (take 2 tokens)
-        (at-node-start? (take 1 tokens) open close coll) (take 1 tokens)
-        :default nil))
+  (node-terminus tokens #(at-node-start? % open close coll)))
+
+(defn terminal-token-with-prior-start? [close coll]
+  (when-let [open (open-for close)]
+    (loop [coll coll]
+      (cond (empty? coll) false
+            (or (= (take (count open) coll) open)
+                (= (first coll) open)) true
+            :default (recur (rest coll))))))
+
+(defn node-end [s coll]
+  (node-terminus s #(terminal-token-with-prior-start? % coll)))
 
 (defn parse-node [stack end]
   (let [target (open-for end)]
@@ -99,7 +114,7 @@
         {:unused (apply str (reverse accum))}
         (if-let [token (node-start stack target end accum)]
           {:node (extract-node accum target end)
-           :unused (drop (count token) stack)}
+           :unused (drop (:size token) stack)}
           (recur (rest stack) (conj accum (first stack))))))))
 
 (defn finalize-parse [accum]
@@ -110,29 +125,15 @@
         (first aggregate)
         {:tree aggregate}))))
 
-(defn has-duo-group-start [coll open]
-  (cond (empty? coll) false
-        (= (take (count open) coll) open) true
-        :default (recur (rest coll) open)))
-
-(defn terminal-token-with-prior-start? [close coll]
-  (if-let [term (first (filter #(= close %) (keys group-complement)))]
-    (has-duo-group-start coll (open-for term))
-    false))
-
-(defn group-end [s coll]
-  (cond (terminal-token-with-prior-start? (take 2 s) coll) (take 2 s)
-        (terminal-token-with-prior-start? (take 1 s) coll) (take 1 s)
-        :default nil))
-
 (defn tokens->tree [tokens]
   (loop [accum ()
          tokens tokens]
     (if (empty? tokens)
       (finalize-parse accum)
-      (if-let [token (group-end (take 2 tokens) accum)]
-        (let [{:keys [node unused]} (parse-node accum token)
-              next-tokens (drop (count token) tokens)]
+      (if-let [terminal-token (node-end tokens accum)]
+        (let [{:keys [token size]} terminal-token
+              {:keys [node unused]} (parse-node accum token)
+              next-tokens (drop size tokens)]
           (if (nil? node)
             (recur (into accum token) next-tokens)
             (if-not (empty? unused)
@@ -140,8 +141,16 @@
               (recur (list node) next-tokens))))
         (recur (conj accum (first tokens)) (rest tokens))))))
 
+(defn str->tokens [s]
+  (loop [tokens []
+         s (seq s)]
+    (cond (contains? three-char-tokens (take 3 s))
+          (recur (conj tokens (take 3 s)) (drop 3 s))
+          (empty? s) tokens
+          :default (recur (conj tokens (first s)) (rest s)))))
+
 (defn str->tree [s]
-  (-> s tokens->tree))
+  (-> s str->tokens tokens->tree))
 
 (defmulti tree->str (comp first keys))
 
