@@ -150,7 +150,20 @@
          (core/parse "hello [[world ((lots {{of **nested**}} ^^__stuff__ here^^)) $$really, **lots**$$]]!"))))
 
 (deftest syntax-alias
-  (is (= :todo :todo)))
+  (is (= {:alias {:left [{:text "hello"}]
+                  :right [{:text "roam"}]}}
+         (core/parse "[hello](roam)")))
+  (is (= {:alias {:left [{:text "hello "}
+                         {:alias {:left [{:text "roam"}]
+                                  :right [{:text "world"}]}}]
+                  :right [{:text "cheese"}]}}
+         (core/parse "[hello [roam](world)](cheese)")))
+  (is (= {:alias {:left [{:text "Oh, "}
+                         {:alias {:left [{:text "hello, "}]
+                                  :right [{:text "world"}]}}
+                         {:text " "}]
+                  :right [{:text "the-end"}]}}
+         (core/parse "[Oh, [hello, ](world) ](the-end)"))))
 
 (deftest tree->str
   (is (= "abc"
