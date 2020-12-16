@@ -127,7 +127,10 @@
         highlight ["^^" "^^" :highlight]
         bold ["**" "**" :bold]
         italic ["__" "__" :italic]
-        groups [latex highlight bold italic]]
+        link ["[[" "]]" :link]
+        ref ["((" "))" :ref]
+        roam-render ["{{" "}}" :roam-render]
+        groups [latex highlight bold italic link ref roam-render]]
     (doseq [a groups]
       (doseq [b (remove #{a} groups)]
         (doseq [c (remove #{a b} groups)]
@@ -153,17 +156,36 @@
   (is (= {:alias {:left [{:text "hello"}]
                   :right [{:text "roam"}]}}
          (core/parse "[hello](roam)")))
+
   (is (= {:alias {:left [{:text "hello "}
                          {:alias {:left [{:text "roam"}]
                                   :right [{:text "world"}]}}]
                   :right [{:text "cheese"}]}}
          (core/parse "[hello [roam](world)](cheese)")))
+
   (is (= {:alias {:left [{:text "Oh, "}
                          {:alias {:left [{:text "hello, "}]
                                   :right [{:text "world"}]}}
                          {:text " "}]
                   :right [{:text "the-end"}]}}
-         (core/parse "[Oh, [hello, ](world) ](the-end)"))))
+         (core/parse "[Oh, [hello, ](world) ](the-end)")))
+
+  (is (= {:alias {:left [{:alias {:left [{:text "hello"}]
+                                  :right [{:text "there"}]}}]
+                  :right [{:text "aliases"}]}}
+         (core/parse "[[hello](there)](aliases)")))
+
+  (is (= {:alias {:left [{:text "Hi"}]
+                  :right [{:alias {:left [{:text "its an"}]
+                                   :right [{:text "alias"}]}}]}}
+         (core/parse "[Hi]([its an](alias))")))
+
+  (is (= {:alias {:left [{:alias {:left [{:text "Not a"}]
+                                  :right [{:text "link"}]}}]
+                  :right [{:text "its "}
+                          {:alias {:left [{:text "an"}]
+                                   :right [{:text "alias"}]}}]}}
+         (core/parse "[[Not a](link)](its [an](alias))"))))
 
 (deftest tree->str
   (is (= "abc"
@@ -203,6 +225,17 @@
   ["this is [[probably [[[[enough]] linking]] for]] now."
    "hello [[world ((lots {{of **nested**}} ^^__stuff__ here^^)) $$really, **lots**$$]]!"])
 
-(deftest idempotency
-  (doseq [text idempotency-test-cases]
-    (is (= text (-> text core/str->tree core/tree->str)))))
+(deftest invertability
+  (let [latex ["$$" "$$" :latex]
+        highlight ["^^" "^^" :highlight]
+        bold ["**" "**" :bold]
+        italic ["__" "__" :italic]
+        link ["[[" "]]" :link]
+        ref ["((" "))" :ref]
+        roam-render ["{{" "}}" :roam-render]
+        groups [latex highlight bold italic link ref roam-render]]
+    (doseq [a groups]
+      (doseq [b (remove #{a} groups)]
+        (doseq [c (remove #{a b} groups)]
+          (doseq [[text _tree] (syntax-nesting-test-cases a b c)]
+            (is (= text (-> text core/str->tree core/tree->str)))))))))

@@ -2,19 +2,19 @@
   (:require [clojure.string :as string]))
 
 (def group-complement
-  {"]]" "[["
-   "))" "(("
-   "}}" "{{"
-   "$$" "$$"
-   "^^" "^^"
-   "**" "**"
-   "__" "__"
-   ")" "["})
+  {(seq "]]") (seq "[[")
+   (seq "))") (seq "((")
+   (seq "}}") (seq "{{")
+   (seq "$$") (seq "$$")
+   (seq "^^") (seq "^^")
+   (seq "**") (seq "**")
+   (seq "__") (seq "__")
+   (seq ")") (seq "[")})
 
 (def group-trios
-  {")" {:open "["
-        :middle "]("
-        :close ")"}})
+  {(seq ")") {:open (seq "[")
+              :middle (seq "](")
+              :close (seq ")")}})
 
 (defn middle-token-for [trio-close-token]
   (get-in group-trios [trio-close-token :middle]))
@@ -28,81 +28,79 @@
 
 (def open-for (partial get group-complement))
 
-(def type-for {"]]" :link
-               "))" :ref
-               "}}" :roam-render
-               "$$" :latex
-               "^^" :highlight
-               "**" :bold
-               "__" :italic
-               ")" :alias})
-
-(def regex-for (partial get {"](" #"\]\("}))
+(def type-for {(seq "]]") :link
+               (seq "))") :ref
+               (seq "}}") :roam-render
+               (seq "$$") :latex
+               (seq "^^") :highlight
+               (seq "**") :bold
+               (seq "__") :italic
+               (seq ")") :alias})
 
 (def close-for-type (apply merge (map (fn [[k v]] {v k}) type-for)))
 
-(defn group-start? [s]
-  (some #(string/starts-with? s %)
-        (vals group-complement)))
-
-(defn group-end? [s]
-  (some #(string/starts-with? s %)
-        (keys group-complement)))
-
 (defn concatenate-adjacent-strings [accum d]
   (let [prior (or (last accum) "")]
-    (if (and (string? prior)
-             (string? d))
-      (conj (vec (butlast accum))
-            (str prior d))
+    (if (and (or (char? prior) (string? prior)) (char? d))
+      (conj (vec (butlast accum)) (str d prior))
       (conj accum d))))
 
 (defn str->text-nodes [s]
-  (if (string? s)
-    {:text s}
-    s))
+  (cond (string? s) {:text (apply str (reverse s))}
+        (char? s) {:text (str s)}
+        :default s))
 
 (defn aggregate-groups [accum]
-  (->> (reduce concatenate-adjacent-strings [] accum)
+  (->> accum
+       (reduce concatenate-adjacent-strings [])
        (remove nil?)
        (mapv str->text-nodes)))
 
-(defn split-around [s target]
-  (let [i (string/index-of s target)
-        left (subs s 0 i)
-        right (subs s (+ i (count target)))]
-    [left right]))
+(defn split-seq [s t]
+  (loop [left []
+         s s]
+    (cond (empty? s) [left []]
+          (= (take (count t) s) t) [left (drop (count t) s)]
+          :default (recur (conj left (first s)) (rest s)))))
 
 (defn partition-trio [contents open mid close]
-  (let [[left _ right] (partition-by #(= mid %) contents)]
+  (let [[left right] (split-seq contents mid)]
     {:left (->> left (remove #{open}) aggregate-groups)
      :right (->> right (remove #{close}) aggregate-groups)}))
 
 (defn extract-node [accum open close]
   (let [kind (type-for close)]
     (if-let [mid (get-in group-trios [close :middle])]
-      {kind (partition-trio accum open mid close)}
-      {kind (aggregate-groups (butlast accum))})))
+      {kind (partition-trio (drop-last (count close) accum) open mid close)}
+      {kind (aggregate-groups (drop-last (count close) accum))})))
 
-(defn has-trio-group-middle [coll middle]
-  (not (nil? (some #(= middle %) coll))))
+(defn has-trio-group-middle [coll mid]
+  (cond (empty? coll) false
+        (= (take 2 coll) mid) true
+        :default (recur (rest coll) mid)))
 
-(defn at-group-start? [c open close coll]
+(defn at-node-start? [c open close coll]
   (and (= c open)
        (>= (count coll) 2)
        (if (contains? group-trios close)
          (has-trio-group-middle coll (middle-token-for close))
          true)))
 
+(defn node-start [tokens open close coll]
+  (cond (at-node-start? (take 2 tokens) open close coll) (take 2 tokens)
+        (at-node-start? (take 1 tokens) open close coll) (take 1 tokens)
+        :default nil))
+
 (defn parse-node [stack end]
   (let [target (open-for end)]
-    (loop [stack (conj stack end)
+    (loop [stack (into stack end)
            accum ()]
-      (if-let [c (first stack)]
-        (if (at-group-start? c target end accum)
-          {:node (extract-node accum target end) :unused (rest stack)}
-          (recur (rest stack) (conj accum c)))
-        {:unused (apply str accum)}))))
+      (if (empty? stack)
+        {:unused (apply str (reverse accum))}
+        (if-let [token (node-start stack target end accum)]
+          {:node (extract-node accum target end)
+           :unused (drop (count token) stack)}
+          (recur (rest stack) (conj accum (first stack))))))))
 
 (defn finalize-parse [accum]
   (if (= (count accum) 1)
@@ -112,33 +110,38 @@
         (first aggregate)
         {:tree aggregate}))))
 
+(defn has-duo-group-start [coll open]
+  (cond (empty? coll) false
+        (= (take (count open) coll) open) true
+        :default (recur (rest coll) open)))
+
+(defn terminal-token-with-prior-start? [close coll]
+  (if-let [term (first (filter #(= close %) (keys group-complement)))]
+    (has-duo-group-start coll (open-for term))
+    false))
+
+(defn group-end [s coll]
+  (cond (terminal-token-with-prior-start? (take 2 s) coll) (take 2 s)
+        (terminal-token-with-prior-start? (take 1 s) coll) (take 1 s)
+        :default nil))
+
 (defn tokens->tree [tokens]
   (loop [accum ()
-         tokens (reverse tokens)]
-    (if-let [v (first tokens)]
-      (cond
-        (group-end? v) (let [{:keys [node unused]} (parse-node accum v)]
-                         (if (nil? node)
-                           (recur (conj accum v) (rest tokens))
-                           (if-not (empty? unused)
-                             (recur (conj unused node) (rest tokens))
-                             (recur (list node) (rest tokens)))))
-        :default (recur (conj accum v) (rest tokens)))
-      (finalize-parse accum))))
-
-(defn str->tokens [s]
-  (loop [s s
-         stack ()]
-    (if (empty? s)
-      stack
-      (if (and (>= (count s) 2) (contains? two-char-tokens (subs s 0 2)))
-        (recur (subs s 2)
-               (conj stack (subs s 0 2)))
-        (recur (subs s 1)
-               (conj stack (subs s 0 1)))))))
+         tokens tokens]
+    (if (empty? tokens)
+      (finalize-parse accum)
+      (if-let [token (group-end (take 2 tokens) accum)]
+        (let [{:keys [node unused]} (parse-node accum token)
+              next-tokens (drop (count token) tokens)]
+          (if (nil? node)
+            (recur (into accum token) next-tokens)
+            (if-not (empty? unused)
+              (recur (conj unused node) next-tokens)
+              (recur (list node) next-tokens))))
+        (recur (conj accum (first tokens)) (rest tokens))))))
 
 (defn str->tree [s]
-  (-> s str->tokens tokens->tree))
+  (-> s tokens->tree))
 
 (defmulti tree->str (comp first keys))
 
@@ -148,6 +151,8 @@
   (let [kind (first (keys tree))
         close (close-for-type kind)
         open (open-for close)]
-    (str open (apply str (map tree->str (kind tree))) close)))
+    (str (apply str open)
+         (apply str (map tree->str (kind tree)))
+         (apply str close))))
 
 (def parse str->tree)
