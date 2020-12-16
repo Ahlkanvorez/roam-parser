@@ -168,6 +168,15 @@
 
 (defmethod tree->str :text [tree] (:text tree))
 (defmethod tree->str :tree [tree] (apply str (map tree->str (:tree tree))))
+(defmethod tree->str :alias [tree]
+  (let [close (close-for-type :alias)
+        open (open-for close)
+        middle (middle-token-for close)]
+    (str (apply str open)
+         (apply str (map tree->str (-> tree :alias :left)))
+         (apply str middle)
+         (apply str (map tree->str (-> tree :alias :right)))
+         (apply str close))))
 (defmethod tree->str :default [tree]
   (let [kind (first (keys tree))
         close (close-for-type kind)
