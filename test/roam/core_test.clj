@@ -2,6 +2,19 @@
   (:require [clojure.test :refer :all]
             [roam.core :as core]))
 
+(deftest roam-examples
+  (is (= {:alias {:left [{:text "!"}
+                         {:alias {:left [{:text "img"}]
+                                  :right [{:text "image-as-alias.com"}]}}]
+                  :right [{:text "www.roamresearch.com"}]}}
+         (core/parse "[![img](image-as-alias.com)](www.roamresearch.com)")))
+  (is (= {:roam-render [{:roam-render [{:text "curly braces"}]}
+                        {:text " in"}
+                        {:roam-render [{:text "side"}]}
+                        {:text " of "}
+                        {:roam-render [{:text "curly braces"}]}]}
+         (core/parse "{{{{curly braces}} in{{side}} of {{curly braces}}}}"))))
+
 (deftest raw-text
   (is (= {:text "abc"}
          (core/parse "abc")))
