@@ -1,5 +1,6 @@
 {:paths ["src" "test"]
  :deps {org.clojure/clojure {:mvn/version "1.10.1"}
+        org.clojure/clojurescript {:mvn/version "1.10.758"}
         reagent/reagent {:mvn/version "0.10.0"}}
  :aliases
  {:dev {:extra-deps {thheller/shadow-cljs {:mvn/version "2.11.8"}}
