@@ -26,8 +26,7 @@ clj -A:dev compile test
 
 ## Deployment
 
-Since this webapp uses no server-side state or requests, it can be deployed
-serverlessly, such as on S3 via CloudFront.
+A live demo is automatically deployed to S3 and served via CloudFront at [roam-parser.robertm.io](http://roam-parser.robertm.io)
 
 ## License
 
