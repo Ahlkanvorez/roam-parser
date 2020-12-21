@@ -174,6 +174,19 @@ Aliases inside aliases
                      {kind2 [{:text "two "}
                              {kind3 [{:text "three"}]}]}]}]}}))
 
+(deftest syntax-code-test
+  (is (= {:code [{:text "hello"}]}
+         (parser/parse "{hello}")))
+  (is (= {:tree [{:text "This is text before the code "}
+                 {:code [{:text "2 + 2"}]}
+                 {:text " This is text after the code"}]}
+         (parser/parse "This is text before the code {2 + 2} This is text after the code")))
+  (is (= {:code [{:text "Does it make sense to nest code? "}
+                 {:code [{:text "Not really. "}]}
+                 {:code [{:text "But we can anyway "}
+                         {:code [{:text "2 * 2 * 2"}]}]}]}
+         (parser/parse "{Does it make sense to nest code? {Not really. }{But we can anyway {2 * 2 * 2}}}"))))
+
 (def combination-test-inputs
   (let [latex ["$$" "$$" :latex]
         highlight ["^^" "^^" :highlight]
