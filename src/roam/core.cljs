@@ -19,9 +19,78 @@ Aliases inside aliases
 (def initial-update-path "[:tree 0]")
 (def initial-update-value "{:text \"You can also do in-place updates with update-in, assoc-in, etc\"}")
 
+(def pre-style {:style {:overflow :none :word-wrap :break-word}})
+
 (defn text-on-change [source]
   (fn [e]
     (reset! source (.. e -target -value))))
+
+(defn rand-char []
+  (rand-nth "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 \n\t-_"))
+
+(defn rand-roam-type []
+  (rand-nth (vals parser/type-for)))
+
+(defn rand-roam-node [text-length nesting-probability]
+  (if (<= (rand) nesting-probability)
+    (let [kind (rand-roam-type)
+          close (parser/close-for-type kind)
+          open (parser/open-for close)]
+      (if (contains? parser/group-trios close)
+        (let [left (rand-roam-node text-length nesting-probability)
+              right (rand-roam-node text-length  nesting-probability)
+              separator (parser/middle-token-for close)]
+          (str (apply str open) left (apply str separator) right (apply str close)))
+        (let [inner (rand-roam-node text-length  nesting-probability)]
+          (str (apply str open) inner (apply str close)))))
+    (apply str (take (rand-int text-length) (repeatedly rand-char)))))
+
+(defn random-roam-string [top-level-nodes text-length nesting-probability]
+  (apply str (take (rand-int top-level-nodes)
+                   (repeatedly #(rand-roam-node text-length
+                                                nesting-probability)))))
+
+(defn benchmark []
+  (let [benchmark-runtime (r/atom "")
+        max-top-level-nodes (r/atom 20)
+        max-text-length (r/atom 1000)
+        nesting-probability (r/atom 0.5)
+        do-benchmark
+        (fn []
+          (if (>= 1.0 @nesting-probability)
+            (js/alert "You can only have nesting probabilities < 1.")
+            (let [test-data (take 1000
+                                  (repeatedly #(random-roam-string
+                                                @max-top-level-nodes
+                                                @max-text-length
+                                                @nesting-probability)))]
+              (reset! benchmark-runtime
+                      (with-out-str
+                        (time
+                         (doseq [datum test-data]
+                           (parser/parse datum))))))))]
+    (fn []
+      [:div
+       [:h2 "Some Benchmarks"]
+       [:p
+        "Clicking the button below will generate 1000 random Roam "
+        "strings with the settings below, and fully parse them, then "
+        "display the total runtime."]
+       
+       [:input {:type :button :value "Run Benchmark"
+                :on-click do-benchmark}]
+       (when @benchmark-runtime
+         [:pre @benchmark-runtime])
+       (let [example (random-roam-string @max-top-level-nodes
+                                         @max-text-length
+                                         @nesting-probability)]
+         [:div
+          [:p "Below is a sample string generated with the selected settings:"]
+          [:pre pre-style example]
+          [:p "And here's its parse string"]
+          [:pre pre-style
+           (with-out-str
+             (pprint (time (parser/parse example))))]])])))
 
 (defn demo []
   (let [text (r/atom initial-text)
@@ -48,9 +117,12 @@ Aliases inside aliases
         "text."]
        [:textarea {:style {:width "100%" :max-width "100%"}
                    :value @text :on-change (text-on-change text)}]
-       [:pre (let [text @text]
-               (with-out-str
-                 (pprint (time (parser/parse text)))))]
+       [:pre pre-style
+        (let [text @text]
+          (with-out-str
+            (pprint (time (parser/parse text)))))]
+       [:hr]
+       [:h2 "Updating the Tree"]
        [:p
         "The following parses the above input, updates the tree representation using "
         [:a {:href "https://clojuredocs.org/clojure.core/assoc-in"} "assoc-in"]
@@ -64,7 +136,7 @@ Aliases inside aliases
         [:input {:style {:flex "1 0"}
                  :type :text :value @update-value :on-change (text-on-change update-value)}]]
 
-       [:pre {:style {:overflow :auto :word-wrap :break-word}}
+       [:pre pre-style
         (let [text @text
               path @update-path
               value @update-value]
@@ -78,8 +150,9 @@ Aliases inside aliases
                     parser/tree->str)))
               (catch :default e
                 (println "Error parsing:")
-                (println e)))))
-        ]])))
+                (println e)))))]
+       [:hr]
+       [benchmark]])))
 
 (defn mount-root []
   (rdom/render [demo]
