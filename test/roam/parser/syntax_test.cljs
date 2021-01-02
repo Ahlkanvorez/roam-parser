@@ -212,6 +212,18 @@ Aliases inside aliases
   {(str open "hello" close)
    (tree/Node. kind [(tree/Node. :text ["hello"])])
 
+   (str "abc " open "hello" close)
+   (tree/Node.
+    :tree
+    [(tree/Node. :text ["abc "])
+     (tree/Node. kind [(tree/Node. :text ["hello"])])])
+
+   (str open "hello" close " 123")
+   (tree/Node.
+    :tree
+    [(tree/Node. kind [(tree/Node. :text ["hello"])])
+     (tree/Node. :text [" 123"])])
+
    (str "abc " open "hello" close " 123")
    (tree/Node.
     :tree
@@ -312,6 +324,10 @@ Aliases inside aliases
   (doseq [[text tree] (double-bracket-test-cases "`" "`" :syntax)]
     (is (= tree (syntax/analyze (lexical/parse text))))))
 
+(deftest syntax-quote-test
+  (doseq [[text tree] (double-bracket-test-cases "\"" "\"" :quote)]
+    (is (= tree (syntax/analyze (lexical/parse text))))))
+
 (deftest syntax-block-test
   (doseq [[text tree] (double-bracket-test-cases "```" "```" :block)]
     (is (= tree (syntax/analyze (lexical/parse text)))))
@@ -401,8 +417,9 @@ Aliases inside aliases
         ref ["((" "))" :ref]
         render ["{{" "}}" :render]
         syntax ["`" "`" :syntax]
+        quote ["\"" "\"" :quote]
         block ["```" "```" :block]
-        groups [latex highlight bold italic link ref render]
+        groups [latex highlight bold italic link ref render quote]
         ;; It doesn't make sense to nest syntax & blocks together,
         ;; so split test cases into two groups, one with each & not the other.
         groups-a (conj groups syntax)

@@ -12,6 +12,7 @@
    (lexical/Rule. :italic    {:underline :underline-body})
    (lexical/Rule. :latex     {:dollar :dollar-body})
    (lexical/Rule. :syntax    {:syntax :syntax-body})
+   (lexical/Rule. :quote     {:quote :quote-body})
    (lexical/Rule. :block     [:syntax-e :syntax :syntax-e])
    (lexical/Rule. :alias     [:bracket :paren])])
 

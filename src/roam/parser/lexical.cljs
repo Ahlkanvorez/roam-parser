@@ -20,6 +20,7 @@
    (Rule. :star        '["*" "*" :star-body "*" "*"])
    (Rule. :underline   '["_" "_" :underline-body "_" "_"])
    (Rule. :dollar      '["$" "$" :dollar-body "$" "$"])
+   (Rule. :quote       '["\"" :quote-body "\""])
    (Rule. :text        '[:non-token +])])
 
 (def base-rules
@@ -27,7 +28,7 @@
     (into rules
           (flatten
            (map (partial body-rules-for rules)
-                [:syntax :carrot :star :underline :dollar])))))
+                [:syntax :carrot :star :underline :dollar :quote])))))
 
 (def rule-ends
   (apply merge
