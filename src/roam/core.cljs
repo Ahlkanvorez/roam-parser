@@ -3,7 +3,9 @@
             [cljs.reader :as edn]
             [reagent.core :as r]
             [reagent.dom :as rdom]
-            [roam.parser :as parser]))
+            [roam.parser :as parser]
+            [roam.parser.tree :as tree]
+            [roam.parser.syntax :as syntax]))
 
 (def initial-text "The parser can parse all of Roam's major syntax at least [[Nested [[Links]]]] and ^^**bold highlights**^^ and `[html roam]([[Aliases]])`all the ones we haven't done yet as well. Specifically ```javascript
 
@@ -16,8 +18,8 @@ Aliases inside aliases
 
 ```")
 
-(def initial-update-path "[:tree 0]")
-(def initial-update-value "{:text \"You can also do in-place updates with update-in, assoc-in, etc\"}")
+(def initial-update-path "[:text 0]")
+(def initial-update-value "\"You can also do in-place updates with update-in, assoc-in, etc. \"")
 
 (def pre-style {:style {:overflow :none :word-wrap :break-word}})
 
@@ -25,72 +27,141 @@ Aliases inside aliases
   (fn [e]
     (reset! source (.. e -target -value))))
 
-(defn rand-char []
-  (rand-nth "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 \n\t-_"))
+(def rand-word
+  (let [word-bank
+        (-> ;; vide Ovidi Metamorphoseon I.i-xxxi
+         " In nova fert animus mutatas dicere formas
+corpora; di, coeptis (nam vos mutastis et illas)
+adspirate meis primaque ab origine mundi
+ad mea perpetuum deducite tempora carmen!
+     Ante mare et terras et quod tegit omnia caelum
+unus erat toto naturae vultus in orbe,
+quem dixere chaos: rudis indigestaque moles
+nec quicquam nisi pondus iners congestaque eodem
+non bene iunctarum discordia semina rerum.
+nullus adhuc mundo praebebat lumina Titan,
+nec nova crescendo reparabat cornua Phoebe,
+nec circumfuso pendebat in aere tellus
+ponderibus librata suis, nec bracchia longo
+margine terrarum porrexerat Amphitrite;
+utque erat et tellus illic et pontus et aer,
+sic erat instabilis tellus, innabilis unda,
+lucis egens aer; nulli sua forma manebat,
+obstabatque aliis aliud, quia corpore in uno
+frigida pugnabant calidis, umentia siccis,
+mollia cum duris, sine pondere, habentia pondus.
+     Hanc deus et melior litem natura diremit.
+nam caelo terras et terris abscidit undas
+et liquidum spisso secrevit ab aere caelum.
+quae postquam evolvit caecoque exemit acervo,
+dissociata locis concordi pace ligavit:
+ignea convexi vis et sine pondere caeli
+emicuit summaque locum sibi fecit in arce;
+proximus est aer illi levitate locoque;
+densior his tellus elementaque grandia traxit
+et pressa est gravitate sua; circumfluus umor
+ultima possedit solidumque coercuit orbem."
+         (clojure.string/split #"\W+")
+         (as-> words (remove empty? words)))]
+    (fn [] (rand-nth word-bank))))
 
 (defn rand-roam-type []
-  (rand-nth (vals parser/type-for)))
+  (rand-nth (map #(.-name %) syntax/higher-rules)))
 
-(defn rand-roam-node [text-length nesting-probability]
-  (if (<= (rand) nesting-probability)
+(defn rand-sentence [word-count]
+  (->> (repeatedly rand-word)
+       (take (inc (rand-int (dec word-count))))
+       (interpose " ")
+       (apply str)))
+
+(defn rand-text-node [word-count]
+  (tree/Node. :text [(rand-sentence word-count)]))
+
+(defn rand-roam-node [word-count max-height max-width]
+  (when (> max-height 0)
     (let [kind (rand-roam-type)
-          close (parser/close-for-type kind)
-          open (parser/open-for close)]
-      (if (contains? parser/group-trios close)
-        (let [left (rand-roam-node text-length nesting-probability)
-              right (rand-roam-node text-length  nesting-probability)
-              separator (parser/middle-token-for close)]
-          (str (apply str open) left (apply str separator) right (apply str close)))
-        (let [inner (rand-roam-node text-length  nesting-probability)]
-          (str (apply str open) inner (apply str close)))))
-    (apply str (take (rand-int text-length) (repeatedly rand-char)))))
-
-(defn random-roam-string [top-level-nodes text-length nesting-probability]
-  (apply str (take (rand-int top-level-nodes)
-                   (repeatedly #(rand-roam-node text-length
-                                                nesting-probability)))))
+          kids
+          (loop [children []
+                 width (rand-int max-width)]
+            (if (> width 0)
+              (let [child (rand-roam-node word-count
+                                          (dec max-height)
+                                          max-width)]
+                (if child
+                  (recur (conj children child)
+                         (dec width))
+                  (recur (conj children (rand-text-node word-count))
+                         (dec width))))
+              (if (empty? children)
+                [(rand-text-node word-count)]
+                children)))]
+      (parser/node->str (tree/Node. kind (remove nil? kids))))))
 
 (defn benchmark []
-  (let [benchmark-runtime (r/atom "")
-        max-top-level-nodes (r/atom 20)
-        max-text-length (r/atom 1000)
-        nesting-probability (r/atom 0.5)
+  (let [benchmark-runtimes (r/atom [])
+        max-words-per-node (r/atom 30)
+        max-width (r/atom 4)
+        max-height (r/atom 4)
         do-benchmark
         (fn []
-          (if (>= 1.0 @nesting-probability)
-            (js/alert "You can only have nesting probabilities < 1.")
-            (let [test-data (take 1000
-                                  (repeatedly #(random-roam-string
-                                                @max-top-level-nodes
-                                                @max-text-length
-                                                @nesting-probability)))]
-              (reset! benchmark-runtime
-                      (with-out-str
-                        (time
-                         (doseq [datum test-data]
-                           (parser/parse datum))))))))]
+          (let [test-data (take 1000
+                                (repeatedly #(rand-roam-node
+                                              @max-words-per-node
+                                              @max-width
+                                              @max-height)))
+                results (atom [])]
+            (doseq [datum test-data]
+              (let [t (->> (with-out-str (time (parser/parse datum)))
+                           (re-find #"\d+\.\d+"))]
+                (swap! results conj {:runtime t :data datum})))
+            (reset! benchmark-runtimes @results)))]
     (fn []
       [:div
-       [:h2 "Some Benchmarks"]
+       [:h2 "Some Benchmarks - using str"]
+       [:div
+        [:input {:type :number :value @max-words-per-node :min 1
+                 :on-change #(reset! max-words-per-node (js/parseFloat (.. % -target -value)))}]
+        [:input {:type :number :value @max-width :min 1
+                 :on-change #(reset! max-width (js/parseFloat (.. % -target -value)))}]
+        [:input {:type :number :value @max-height :min 1
+                 :on-change #(reset! max-height (js/parseFloat (.. % -target -value)))}]]
        [:p
         "Clicking the button below will generate 1000 random Roam "
-        "strings with the settings below, and fully parse them, then "
+        "strings with the settings above, and fully parse them, then "
         "display the total runtime."]
        
        [:input {:type :button :value "Run Benchmark"
                 :on-click do-benchmark}]
-       (when @benchmark-runtime
-         [:pre @benchmark-runtime])
-       (let [example (random-roam-string @max-top-level-nodes
-                                         @max-text-length
-                                         @nesting-probability)]
+       (let [example (rand-roam-node @max-words-per-node
+                                     @max-height
+                                     @max-width)]
          [:div
           [:p "Below is a sample string generated with the selected settings:"]
-          [:pre pre-style example]
+          [:code pre-style example]
           [:p "And here's its parse string"]
-          [:pre pre-style
-           (with-out-str
-             (pprint (time (parser/parse example))))]])])))
+          [:div
+           [:pre pre-style
+            (with-out-str
+              (pprint (time (parser/parse example))))]]])
+       (when-not (empty? @benchmark-runtimes)
+         [:div
+          [:p "Total Runtime: " (->> @benchmark-runtimes
+                                     (map (comp js/parseFloat :runtime))
+                                     (reduce + 0)) " ms"]
+          [:table
+           [:thead
+            [:tr
+             [:th "Time (ms)"]
+             [:th "Test data"]]]
+           [:tbody
+            (for [[idx case] (map vector (range)
+                                  (sort-by (comp js/parseFloat :runtime)
+                                           >
+                                           @benchmark-runtimes))]
+              [:tr {:key idx}
+               [:td (:runtime case)]
+               [:td (:data case)]])]]]
+         )])))
 
 (defn demo []
   (let [text (r/atom initial-text)
@@ -126,7 +197,7 @@ Aliases inside aliases
        [:p
         "The following parses the above input, updates the tree representation using "
         [:a {:href "https://clojuredocs.org/clojure.core/assoc-in"} "assoc-in"]
-        " with arguments from the two inputs below, in that order, and serializes the result back to the shown roam string. These updates can be done with the built-in clojure update, update-in, assoc, assoc-in, etc functions, because the tree is simply a clojure map."]
+        " with arguments from the two inputs below, in that order, and serializes the result back to the shown roam string. These updates can be done with the built-in clojure update, update-in, assoc, assoc-in, etc functions, since the tree type implements all the necessary protocols."]
        [:div {:style {:display :flex}}
         [:label {:style {:flex "0 0 50px"}} "Path"]
         [:input {:style {:flex "1 0"}
@@ -147,7 +218,7 @@ Aliases inside aliases
                 (-> text
                     parser/parse
                     (assoc-in (edn/read-string path) (edn/read-string value))
-                    parser/tree->str)))
+                    parser/node->str)))
               (catch :default e
                 (println "Error parsing:")
                 (println e)))))]
