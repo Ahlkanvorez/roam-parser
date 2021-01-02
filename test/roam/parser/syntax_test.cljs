@@ -585,66 +585,73 @@ Aliases inside aliases
            "{{__[[{{\\\"[{A}](\\\"[B]([[^^__(($$[[{{C}}]]$$))__^^](D)]([[__^^$$E$$^^__]]))\\\")\\\"}}]]__}}")))))
 
 (deftest node->str-test
-    (is (= "abc"
-           (lexical/node->str (tree/Node. :text ["abc"]))))
-    (is (= "[hello]"
-           (lexical/node->str (tree/Node. :text ["[hello]"]))))
-    (is (= "[[hello links]]"
-           (lexical/node->str
-            (tree/Node. :link
-                           [(tree/Node. :text ["hello links"])]))))
-    (is (= "[[hello [[nested [[links]]]]]]"
-           (lexical/node->str
+  (is (= "abc"
+         (lexical/node->str (tree/Node. :text ["abc"]))))
+  (is (= "[hello]"
+         (lexical/node->str (tree/Node. :text ["[hello]"]))))
+  (is (= "[[hello links]]"
+         (lexical/node->str
+          (tree/Node. :link
+                      [(tree/Node. :text ["hello links"])]))))
+
+  (is (= "[[hello \"quotes\"]]"
+         (lexical/node->str
+          (tree/Node. :link
+                      [(tree/Node. :text "hello ")
+                       (tree/Node. :quote [(tree/Node. :text "quotes")])]))))
+
+  (is (= "[[hello [[nested [[links]]]]]]"
+         (lexical/node->str
+          (tree/Node.
+           :link
+           [(tree/Node. :text ["hello "])
             (tree/Node.
              :link
-             [(tree/Node. :text ["hello "])
-              (tree/Node.
-               :link
-               [(tree/Node. :text ["nested "])
-                (tree/Node. :link
-                               [(tree/Node. :text ["links"])])])]))))
-    (is (= "this is [[probably [[[[enough]] linking]] for]] now."
-           (lexical/node->str
+             [(tree/Node. :text ["nested "])
+              (tree/Node. :link
+                          [(tree/Node. :text ["links"])])])]))))
+  (is (= "this is [[probably [[[[enough]] linking]] for]] now."
+         (lexical/node->str
+          (tree/Node.
+           :tree
+           [(tree/Node. :text ["this is "])
             (tree/Node.
-             :tree
-             [(tree/Node. :text ["this is "])
+             :link
+             [(tree/Node. :text ["probably "])
               (tree/Node.
                :link
-               [(tree/Node. :text ["probably "])
-                (tree/Node.
-                 :link
-                 [(tree/Node. :link [(tree/Node. :text ["enough"])])
-                  (tree/Node. :text [" linking"])])
-                (tree/Node. :text [" for"])])
-              (tree/Node. :text [" now."])]))))
-    (is (= "hello [[world ((lots {{of **nested**}} ^^__stuff__ here^^)) $$really, **lots**$$]]!"
-           (lexical/node->str
+               [(tree/Node. :link [(tree/Node. :text ["enough"])])
+                (tree/Node. :text [" linking"])])
+              (tree/Node. :text [" for"])])
+            (tree/Node. :text [" now."])]))))
+  (is (= "hello [[world ((lots {{of **nested**}} ^^__stuff__ here^^)) $$really, **lots**$$]]!"
+         (lexical/node->str
+          (tree/Node.
+           :tree
+           [(tree/Node. :text ["hello "])
             (tree/Node.
-             :tree
-             [(tree/Node. :text ["hello "])
+             :link
+             [(tree/Node. :text ["world "])
               (tree/Node.
-               :link
-               [(tree/Node. :text ["world "])
+               :ref
+               [(tree/Node. :text ["lots "])
                 (tree/Node.
-                 :ref
-                 [(tree/Node. :text ["lots "])
-                  (tree/Node.
-                   :render
-                   [(tree/Node. :text ["of "])
-                    (tree/Node. :bold
-                                   [(tree/Node. :text ["nested"])])])
-                  (tree/Node. :text [" "])
-                  (tree/Node.
-                   :highlight
-                   [(tree/Node. :italic
-                                   [(tree/Node. :text ["stuff"])])
-                    (tree/Node. :text [" here"])])])
+                 :render
+                 [(tree/Node. :text ["of "])
+                  (tree/Node. :bold
+                              [(tree/Node. :text ["nested"])])])
                 (tree/Node. :text [" "])
                 (tree/Node.
-                 :latex
-                 [(tree/Node. :text ["really, "])
-                  (tree/Node. :bold [(tree/Node. :text ["lots"])])])])
-              (tree/Node. :text ["!"])])))))
+                 :highlight
+                 [(tree/Node. :italic
+                              [(tree/Node. :text ["stuff"])])
+                  (tree/Node. :text [" here"])])])
+              (tree/Node. :text [" "])
+              (tree/Node.
+               :latex
+               [(tree/Node. :text ["really, "])
+                (tree/Node. :bold [(tree/Node. :text ["lots"])])])])
+            (tree/Node. :text ["!"])])))))
 
 (deftest invertability-test
   (doseq [[a b c] combination-test-inputs]

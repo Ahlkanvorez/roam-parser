@@ -58,6 +58,7 @@
 (defmethod node->str :italic [n] (nested-node->str n))
 (defmethod node->str :latex [n] (nested-node->str n))
 (defmethod node->str :syntax [n] (nested-node->str n))
+(defmethod node->str :quote [n] (nested-node->str n))
 
 (defn rules-for [node]
   (filter (fn [rule]
