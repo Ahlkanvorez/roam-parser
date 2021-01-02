@@ -635,26 +635,26 @@ Aliases inside aliases
       (is (= text
              (-> text lexical/parse syntax/analyze lexical/node->str))))))
 
-(comment
-  ;; Terminal tokens should be escapable using slashes.
-  (deftest syntax-escapes-test
-    (is (= (tree/Node.
-            :link
-            [(tree/Node. :text "hello ")
-             (tree/Node.
-              :quote
-              [(tree/Node. :text "quoted \\\"and \\`escaped\\`\\\" world")])
-             (tree/Node. :text " with links")])
-           (syntax/analyze
-            (lexical/parse
-             "[[hello \"quoted \\\"and \\`escaped\\`\\\" world\" with links]]"))))
-    (is (= (tree/Node.
-            :block
-            [(tree/Node. :text "Syntax quotes have ")
-             (tree/Node. :bold [(tree/Node. :text "\\`")])
-             (tree/Node. :text " before and after them ")
-             (tree/Node. :bold [(tree/Node. :text "\\`")])
-             (tree/Node. :text " like that")])
-           (syntax/analyze
-            (lexical/parse
-             "```Syntax quotes have **\\`** before and after them **\\`** like that```"))))))
+(deftest syntax-escapes-test
+  (is (= (tree/Node.
+          :link
+          [(tree/Node. :text ["hello "])
+           (tree/Node.
+            :syntax
+            [(tree/Node. :text ["quoted \\\"and \\`escaped\\`\\\" world"])])
+           (tree/Node. :text [" with "])
+           (tree/Node. :italic [(tree/Node. :text ["links"])])])
+         (syntax/analyze
+          (lexical/parse
+           "[[hello `quoted \\\"and \\`escaped\\`\\\" world` with __links__]]"))))
+
+  (is (= (tree/Node.
+          :block
+          [(tree/Node. :text ["Syntax quotes have "])
+           (tree/Node. :bold [(tree/Node. :text ["\\`"])])
+           (tree/Node. :text [" before and after them "])
+           (tree/Node. :bold [(tree/Node. :text ["\\`"])])
+           (tree/Node. :text [" like that"])])
+         (syntax/analyze
+          (lexical/parse
+           "```Syntax quotes have **\\`** before and after them **\\`** like that```")))))

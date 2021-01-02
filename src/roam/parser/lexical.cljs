@@ -62,12 +62,14 @@
 (def max-token-size (apply max (map count tokens)))
 
 (defn tokenize-at [s]
-  (loop [size max-token-size]
-    (when (pos? size)
-      (let [token (apply str (take size s))]
-        (if (contains? tokens token)
-          token
-          (recur (dec size)))))))
+  (if (= (first s) "\\")
+    (apply str (take 2 s))
+    (loop [size max-token-size]
+      (when (pos? size)
+        (let [token (apply str (take size s))]
+          (if (contains? tokens token)
+            token
+            (recur (dec size))))))))
 
 (defn tokenize [s]
   (loop [res []
@@ -133,10 +135,10 @@
           (let [t (first s)
                 e (first desired)
                 o (second desired)]
-            (cond (= t e) (recur (rest desired) (rest s) results)
-                  (= o '+)
+            (cond (= o '+)
                   (when-let [[nodes rem] (parse+ s e)]
                     (recur (rest (rest desired)) rem (into results nodes)))
+                  (= t e) (recur (rest desired) (rest s) results)
                   (set? e)
                   (if (contains? e t)
                     (recur (rest desired) (rest s) results)
@@ -173,7 +175,7 @@
       (rules-named :text))))
 
 (defn parse [s]
-  (if-let [[node rem] (parse-with (Rule. :tree '[:tree +]) s)]
+  (if-let [[node rem] (parse-with (Rule. :tree '[:tree +]) (tokenize s))]
     (if (= 1 (count node))
       (get node 0)
       node)
