@@ -682,3 +682,13 @@ Aliases inside aliases
          (syntax/analyze
           (lexical/parse
            "```Syntax quotes have **\\`** before and after them **\\`** like that```")))))
+
+(deftest ungrammatical-tokens-test
+  (is (= (tree/Node. :text ["[[a [ b]]"])
+         (syntax/analyze (lexical/parse "[[a [ b]]"))))
+
+  (is (= (tree/Node. :text ["[[ a ( b ]]"])
+         (syntax/analyze (lexical/parse "[[ a ( b ]]"))))
+
+  (is (= (tree/Node. :text ["[[ a ) b ]]"])
+         (syntax/analyze (lexical/parse "[[ a ) b ]]")))))

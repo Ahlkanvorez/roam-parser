@@ -4,10 +4,11 @@
 
 (defrecord Rule [name pattern])
 
-(defn body-rules-for [rules rule-name]
+(defn body-rule-for [rules rule-name]
   (let [name-e (keyword (str (name rule-name) "-e"))
         name-body (keyword (str (name rule-name) "-body"))
-        rules (remove #(string/starts-with? (name (.-name %)) (name rule-name))
+        rules (remove #(string/starts-with? (name (.-name %))
+                                            (name rule-name))
                       rules)]
     (Rule. name-body [(set (map #(.-name %) rules)) '+])))
 
@@ -16,30 +17,29 @@
    (Rule. :code        '["{" :tree + "}"])
    (Rule. :paren       '["(" :tree + ")"])
    (Rule. :bracket     '["[" :tree + "]"])
-   (Rule. :carrot      '["^" "^" :carrot-body "^" "^"])
-   (Rule. :star        '["*" "*" :star-body "*" "*"])
-   (Rule. :underline   '["_" "_" :underline-body "_" "_"])
-   (Rule. :dollar      '["$" "$" :dollar-body "$" "$"])
+   (Rule. :carrot      '["^^" :carrot-body "^^"])
+   (Rule. :star        '["**" :star-body "**"])
+   (Rule. :underline   '["__" :underline-body "__"])
+   (Rule. :dollar      '["$$" :dollar-body "$$"])
    (Rule. :quote       '["\"" :quote-body "\""])
    (Rule. :text        '[:non-token +])])
 
 (def base-rules
   (let [rules (conj generator-rules (Rule. :syntax-e    '["`" "`"]))]
-    (into rules
-          (flatten
-           (map (partial body-rules-for rules)
-                [:syntax :carrot :star :underline :dollar :quote])))))
+    (->> [:syntax :carrot :star :underline :dollar :quote]
+         (map (partial body-rule-for rules))
+         (into rules))))
 
 (def rule-ends
-  (apply merge
-         (map (fn [rule]
-                (let [p (.-pattern rule)
-                      lhs (take-while string? p)
-                      rem (drop-while string? p)
-                      rhs (->> (drop-while (complement string?) rem)
-                               (take-while string?))]
-                  {(.-name rule) [(apply str lhs) (apply str rhs)]}))
-              base-rules)))
+  (->> base-rules
+       (map (fn [rule]
+              (let [p (.-pattern rule)
+                    lhs (take-while string? p)
+                    rem (drop-while string? p)
+                    rhs (->> (drop-while (complement string?) rem)
+                             (take-while string?))]
+                {(.-name rule) [(apply str lhs) (apply str rhs)]})))
+       (apply merge)))
 
 (defmulti node->str
   (fn [n]
@@ -90,6 +90,12 @@
       rules
       (rules-named :text))))
 
+(defn rules-for [s]
+  (if-let [t (first s)]
+    (if (contains? tokens t)
+      (rules-starting-with t)
+      (rules-named :text))))
+
 (declare parse-node)
 
 (defn parse-at-least-one [s do-parse]
@@ -117,67 +123,78 @@
 (defn parse-node+ [rules-fn]
   (fn [s] (parse-node (rules-fn s) s)))
 
-(defn parse+ [s parse-type]
-  (let [t (first s)
-        parse-fn (case parse-type
-                   :tree (parse-node+ #(rules-starting-with (first %)))
-                   :non-token parse-non-token+
-                   (parse-node+
-                    (if (set? parse-type)
-                      (fn [_s] (flatten (map #(rules-named %) parse-type)))
-                      (fn [_s] (rules-named parse-type)))))]
-    (parse-at-least-one s parse-fn)))
+(defn parse-fn-for [parse-type]
+  (case parse-type
+    :tree (parse-node+ (comp rules-starting-with first))
+    :non-token parse-non-token+
+    (parse-node+
+     (if (set? parse-type)
+       (fn [_s] (mapcat rules-named parse-type))
+       (fn [_s] (rules-named parse-type))))))
 
-(defn parse-with [rule s]
-  (loop [desired (seq (.-pattern rule))
-         s (seq s)
+(defn parse+ [s parse-type]
+  (parse-at-least-one s (parse-fn-for parse-type)))
+
+(defn try-parse+ [s e pattern]
+  (when-let [[nodes rem] (parse+ s e)]
+    [:continue (rest (rest pattern)) rem nodes]))
+
+(defn try-parse-alternatives [token s alts pattern]
+  (if (contains? alts token)
+    [:continue (rest pattern) (rest s) ()]
+    (if-let [[n r] (parse-node (mapcat rules-named alts) s)]
+      [:continue (rest pattern) r [n]]
+      [:ok () s ()])))
+
+(defn try-parse-non-token [t s pattern]
+  (when-not (contains? tokens t)
+    [:continue (rest pattern) (rest s) [t]]))
+
+(defn try-parse-keyword [s e pattern]
+  (when-let [rules (rules-named e)]
+    (when-let [[node rem] (parse-node rules s)]
+      [:continue (rest pattern) rem [node]])))
+
+(defn try-parse-with [pattern s]
+  (let [t (first s)
+        e (first pattern)
+        o (second pattern)]
+    (cond (= o '+) (try-parse+ s e pattern)
+          (= t e) [:continue (rest pattern) (rest s) ()]
+          (set? e) (try-parse-alternatives t s e pattern)
+          (= e :non-token) (try-parse-non-token t s pattern)
+          (keyword? e) (try-parse-keyword s e pattern)
+          :default [:fail () s])))
+
+(defn parse-with [rule start-s]
+  (loop [pattern (seq (.-pattern rule))
+         s (seq start-s)
          results []]
-    (cond (and (seq s) (seq desired))
-          (let [t (first s)
-                e (first desired)
-                o (second desired)]
-            (cond (= o '+)
-                  (when-let [[nodes rem] (parse+ s e)]
-                    (recur (rest (rest desired)) rem (into results nodes)))
-                  (= t e) (recur (rest desired) (rest s) results)
-                  (set? e)
-                  (if (contains? e t)
-                    (recur (rest desired) (rest s) results)
-                    (if-let [[node rem] (parse-node (flatten (map #(rules-named %) e)) s)]
-                      (recur (rest desired) rem (conj results node))
-                      (when (seq results)
-                        [results s])))
-                  :default
-                  (case e
-                    :non-token
-                    (when-not (contains? tokens t)
-                      (recur (rest desired) (rest s) (conj results t)))
-                    :tree
-                    (when-let [[node rem] (parse-node (rules-named e) s)]
-                      (recur (rest desired) rem (conj results node)))
-                    (if (keyword? e)
-                      (when-let [rules (rules-named e)]
-                        (when-let [[node rem] (parse-node rules s)]
-                          (recur (rest desired) rem (conj results node))))))))
-          (empty? desired) [(tree/Node. (.-name rule) results) s]
-          :default (when (seq results) [results s]))))
+    (cond (and (seq s) (seq pattern))
+          (when-let [[code pattern rem nodes] (try-parse-with pattern s)]
+            (if (= code :continue)
+              (recur pattern rem (into results nodes))
+              (when (seq results)
+                [code results s])))
+          (empty? pattern)
+          [:ok (tree/Node. (.-name rule) results) s]
+          :default [:fail [] s])))
 
 (defn parse-node [rules s]
-  (loop [rules rules]
-    (when-let [rule (first rules)]
-      (if-let [[node rem] (parse-with rule s)]
-        [node rem]
-        (recur (rest rules))))))
-
-(defn rules-for [s]
-  (if-let [t (first s)]
-    (if (contains? tokens t)
-      (rules-starting-with t)
-      (rules-named :text))))
+  (loop [untested-rules rules]
+    (when-let [rule (first untested-rules)]
+      (if-let [[code node rem] (parse-with rule s)]
+        (case code
+          :ok [node rem]
+          :fail (when-let [untested-rules (next untested-rules)]
+                  (recur untested-rules)))
+        (recur (rest untested-rules))))))
 
 (defn parse [s]
-  (if-let [[node rem] (parse-with (Rule. :tree '[:tree +]) (tokenize s))]
+  (if-let [[node rem] (parse-node [(Rule. :tree '[:tree +])] (tokenize s))]
     (if (= 1 (count node))
       (get node 0)
       node)
-    (tree/Node. :tree [])))
+    (if (seq s)
+      (tree/Node. :text [(apply str s)])
+      (tree/Node. :tree []))))
