@@ -13,14 +13,15 @@
     (Rule. name-body [(set (map #(.-name %) rules)) '+])))
 
 (def generator-rules
-  [(Rule. :syntax      '["`" :syntax-body "`"])
+  [(Rule. :escape      '["\\" :character])
+   (Rule. :syntax      '["`" :syntax-body "`"])
    (Rule. :code        '["{" :tree + "}"])
    (Rule. :paren       '["(" :tree + ")"])
    (Rule. :bracket     '["[" :tree + "]"])
-   (Rule. :carrot      '["^^" :carrot-body "^^"])
-   (Rule. :star        '["**" :star-body "**"])
-   (Rule. :underline   '["__" :underline-body "__"])
-   (Rule. :dollar      '["$$" :dollar-body "$$"])
+   (Rule. :carrot      '["^" "^" :carrot-body "^" "^"])
+   (Rule. :star        '["*" "*" :star-body "*" "*"])
+   (Rule. :underline   '["_" "_" :underline-body "_" "_"])
+   (Rule. :dollar      '["$" "$" :dollar-body "$" "$"])
    (Rule. :quote       '["\"" :quote-body "\""])
    (Rule. :text        '[:non-token +])])
 
@@ -61,25 +62,6 @@
              base-rules))
 
 (def max-token-size (apply max (map count tokens)))
-
-(defn tokenize-at [s]
-  (if (= (first s) "\\")
-    (apply str (take 2 s))
-    (loop [size max-token-size]
-      (when (pos? size)
-        (let [token (apply str (take size s))]
-          (if (contains? tokens token)
-            token
-            (recur (dec size))))))))
-
-(defn tokenize [s]
-  (loop [res []
-         s (seq s)]
-    (if (seq s)
-      (if-let [next-token (tokenize-at s)]
-        (recur (conj res next-token) (drop (count next-token) s))
-        (recur (conj res (first s)) (rest s)))
-      res)))
 
 (defn rules-named [n]
   (filter #(= n (.-name %)) base-rules))
@@ -146,6 +128,10 @@
       [:continue (rest pattern) r [n]]
       [:ok () s ()])))
 
+(defn try-parse-character [t s pattern]
+  (when t
+    [:continue (rest pattern) (rest s) [t]]))
+
 (defn try-parse-non-token [t s pattern]
   (when-not (contains? tokens t)
     [:continue (rest pattern) (rest s) [t]]))
@@ -162,6 +148,7 @@
     (cond (= o '+) (try-parse+ s e pattern)
           (= t e) [:continue (rest pattern) (rest s) ()]
           (set? e) (try-parse-alternatives t s e pattern)
+          (= e :character) (try-parse-character t s pattern)
           (= e :non-token) (try-parse-non-token t s pattern)
           (keyword? e) (try-parse-keyword s e pattern)
           :default [:fail () s])))
@@ -191,7 +178,7 @@
         (recur (rest untested-rules))))))
 
 (defn parse [s]
-  (if-let [[node rem] (parse-node [(Rule. :tree '[:tree +])] (tokenize s))]
+  (if-let [[node rem] (parse-node [(Rule. :tree '[:tree +])] s)]
     (if (= 1 (count node))
       (get node 0)
       node)

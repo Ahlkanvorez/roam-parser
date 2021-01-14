@@ -57,10 +57,6 @@
                         (drop (inc k) children)))
       this))
 
-  IMapEntry
-  (-key [_this] kind)
-  (-val [_this] children)
-
   IFind
   (-find [_this k] (first (filter #(= k (first %)) children))))
 

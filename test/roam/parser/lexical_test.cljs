@@ -3,13 +3,15 @@
             [roam.parser.lexical :as lexical]
             [roam.parser.tree :as tree]))
 
-(deftest tokenize-test
-  (is (= (list "a" "^^" "**" "b" "**" "^^" "c")
-         (lexical/tokenize "a^^**b**^^c"))))
-
 (deftest parse-test
   (is (= (tree/Node. :tree [])
          (lexical/parse "")))
+
+  (is (= (tree/Node. :text ["abc"])
+         (lexical/parse "abc")))
+
+  (is (= (tree/Node. :escape ["\""])
+         (lexical/parse "\\\"")))
 
   (is (= (tree/Node.
           :bracket

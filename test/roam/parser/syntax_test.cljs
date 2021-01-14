@@ -543,11 +543,11 @@ Aliases inside aliases
               :link
               [(tree/Node.
                 :render
-                [(tree/Node. :text ["\\\""])
+                [(tree/Node. :escape ["\""])
                  (tree/Node.
                   :alias
                   [[(tree/Node. :code [(tree/Node. :text ["A"])])]
-                   [(tree/Node. :text ["\\\""])
+                   [(tree/Node. :escape ["\""])
                     (tree/Node.
                      :alias
                      [[(tree/Node. :text ["B"])]
@@ -578,8 +578,8 @@ Aliases inside aliases
                                [(tree/Node.
                                  :latex
                                  [(tree/Node. :text ["E"])])])])])]])]])
-                    (tree/Node. :text ["\\\""])]])
-                 (tree/Node. :text ["\\\""])])])])])
+                    (tree/Node. :escape ["\""])]])
+                 (tree/Node. :escape ["\""])])])])])
          (syntax/analyze
           (lexical/parse
            "{{__[[{{\\\"[{A}](\\\"[B]([[^^__(($$[[{{C}}]]$$))__^^](D)]([[__^^$$E$$^^__]]))\\\")\\\"}}]]__}}")))))
@@ -665,7 +665,14 @@ Aliases inside aliases
           [(tree/Node. :text ["hello "])
            (tree/Node.
             :syntax
-            [(tree/Node. :text ["quoted \\\"and \\`escaped\\`\\\" world"])])
+            [(tree/Node. :text ["quoted "])
+             (tree/Node. :escape ["\""])
+             (tree/Node. :text ["and "])
+             (tree/Node. :escape ["`"])
+             (tree/Node. :text ["escaped"])
+             (tree/Node. :escape ["`"])
+             (tree/Node. :escape ["\""])
+             (tree/Node. :text [" world"])])
            (tree/Node. :text [" with "])
            (tree/Node. :italic [(tree/Node. :text ["links"])])])
          (syntax/analyze
@@ -675,9 +682,9 @@ Aliases inside aliases
   (is (= (tree/Node.
           :block
           [(tree/Node. :text ["Syntax quotes have "])
-           (tree/Node. :bold [(tree/Node. :text ["\\`"])])
+           (tree/Node. :bold [(tree/Node. :escape ["`"])])
            (tree/Node. :text [" before and after them "])
-           (tree/Node. :bold [(tree/Node. :text ["\\`"])])
+           (tree/Node. :bold [(tree/Node. :escape ["`"])])
            (tree/Node. :text [" like that"])])
          (syntax/analyze
           (lexical/parse
@@ -692,3 +699,4 @@ Aliases inside aliases
 
   (is (= (tree/Node. :text ["[[ a ) b ]]"])
          (syntax/analyze (lexical/parse "[[ a ) b ]]")))))
+
