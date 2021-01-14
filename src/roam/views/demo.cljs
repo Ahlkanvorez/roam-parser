@@ -32,8 +32,9 @@ Aliases inside aliases
     "View Source"]
    [:p {:class "lead"}
     "This parser is written in pure ClojureScript, with no "
-    "dependencies other than Reagent for the minimal UI. Roam "
-    "strings, the textual markup language used by "
+    "dependencies other than Reagent for the minimal UI, and MathJS for"
+    " the custom evaluation example. Roam strings, the textual markup "
+    "language used by "
     [:a {:href "https://roamresearch.com"
          :target "_blank"
          :rel "noreferrer noopener"} "Roam Research"]
