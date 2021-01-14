@@ -33,9 +33,14 @@
   (is (= {:link [{:text ["a" {:escape ["]"]} {:escape ["]"]} "b"]}]}
          (roam/parse "[[a\\]\\]b]]")))
 
-  (is (= {:tree [{:link [{:text ["a"]}]}
-                 {:ref [{:text ["b"]}]}]}
+  (is (= {:alias [{:bracket [{:text ["a"]}]}
+                  {:paren [{:text ["b"]}]}]}
          (roam/parse "[[a]]((b))")))
+
+  (is (= {:tree [{:link [{:text ["a"]}]}
+                 {:text [" "]}
+                 {:ref [{:text ["b"]}]}]}
+         (roam/parse "[[a]] ((b))")))
 
   (is (= {:alias [{:tree [{:link [{:text ["a"]}]}
                           {:link [{:text ["b"]}]}]}

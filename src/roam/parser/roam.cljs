@@ -36,9 +36,9 @@
 (def uncompiled-rules
   (merge {:text   {{[character :escape] '|} '+}
           :escape {["\\" terminal-char] '.}
-          :tree   {{[:text :escape :link :ref :render :code :highlight
-                     :bold :italic :latex :quote :block :syntax
-                     :alias :paren :bracket] '|}
+          :tree   {{[:text :escape :alias :link :ref :render :code
+                     :highlight :bold :italic :latex :quote :block
+                     :syntax :paren :bracket] '|}
                    '+}}
          (->> type->open-mid-close keys (map open-mid-close-rule-for)
               (apply merge))
