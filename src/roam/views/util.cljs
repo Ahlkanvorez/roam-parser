@@ -21,6 +21,5 @@
                (fn []
                  (js/clearTimeout @timeout)
                  (reset! timeout nil)
-                 (println :calling)
                  (apply f args))
                wait)))))

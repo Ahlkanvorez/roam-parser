@@ -5,6 +5,8 @@
 (def type->open-close
   {:link ["[[" "]]"]
    :ref ["((" "))"]
+   :paren ["(" ")"]
+   :bracket ["[" "]"]
    :render ["{{" "}}"]
    :code ["{" "}"]
    :highlight ["^^" "^^"]
@@ -36,7 +38,7 @@
           :escape {["\\" terminal-char] '.}
           :tree   {{[:text :escape :link :ref :render :code :highlight
                      :bold :italic :latex :quote :block :syntax
-                     :alias] '|}
+                     :alias :paren :bracket] '|}
                    '+}}
          (->> type->open-mid-close keys (map open-mid-close-rule-for)
               (apply merge))

@@ -67,7 +67,10 @@ Aliases inside aliases
         "text."]
        [user-roam-input text]
        [:pre pre-style
-        [:code (with-out-str (pprint (time (parser/parse @text))))]]])))
+        [:code (with-out-str
+                 (try (pprint (time (parser/parse @text)))
+                      (catch :default e
+                        (println "Parse failed with exception " e))))]]])))
 
 (defn debounced-input [label target]
   (let [user-input (r/atom @target)
@@ -100,7 +103,9 @@ Aliases inside aliases
    [debounced-input "Path" update-path]
    [debounced-input "Value" update-value]
    [:pre pre-style
-    (with-out-str (cljs.pprint/pprint (parser/parse @text)))]
+    (with-out-str (try (cljs.pprint/pprint (parser/parse @text))
+                       (catch :default e
+                         (println "Parse failed with exception " e))))]
    [:pre pre-style
     (let [text @text
           path @update-path
