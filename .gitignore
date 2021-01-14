@@ -4,4 +4,3 @@ dist/
 .shadow-cljs/
 resources/public/js/
 out/
-package*.json
