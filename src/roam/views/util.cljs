@@ -12,3 +12,15 @@
            :margin-top "10px"
            :white-space :pre-wrap}})
 
+(defn debounce [f wait]
+  (let [timeout (atom nil)]
+    (fn [& args]
+      (js/clearTimeout @timeout)
+      (reset! timeout
+              (js/setTimeout
+               (fn []
+                 (js/clearTimeout @timeout)
+                 (reset! timeout nil)
+                 (println :calling)
+                 (apply f args))
+               wait)))))

@@ -1,5 +1,5 @@
 (ns roam.parser.roam-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is testing]]
             [roam.parser.roam :as roam]))
 
 (deftest parse-test
@@ -98,7 +98,11 @@
                  {:alias [{:render [{:text ["hot"]}]}
                           {:ref [{:text ["dogs"]}]}]}]}
          (roam/parse
-          "[abc](123)[[[Cheddar]]](((Cheese)))[{{hot}}](((dogs)))"))))
+          "[abc](123)[[[Cheddar]]](((Cheese)))[{{hot}}](((dogs)))")))
+
+  (testing "Failed parses should return the whole string as a text node"
+    (is (= {:text ["w[[x[[y]]]]z^^**q**^^w`[e]([[r]])`t```y[[a[[s```))))"]}
+           (roam/parse "w[[x[[y]]]]z^^**q**^^w`[e]([[r]])`t```y[[a[[s```))))")))))
 
  (deftest roam-examples-test
    (is (= {:tree [{:text ["The parser can parse all of Roam's major syntax at least "]}

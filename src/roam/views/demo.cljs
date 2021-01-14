@@ -3,7 +3,8 @@
             [cljs.pprint :refer [pprint]]
             [reagent.core :as r]
             [roam.parser :as parser]
-            [roam.views.util :refer [prepended-input pre-style]]))
+            [roam.views.util :refer
+             [debounce prepended-input pre-style]]))
 
 (def initial-text "The parser can parse all of Roam's major syntax at least [[Nested [[Links]]]] and ^^**bold highlights**^^ and `[html roam]([[Aliases]])`all the ones we haven't done yet as well. Specifically ```javascript
 
@@ -41,20 +42,46 @@ Aliases inside aliases
     "using the wonderful built-in Clojure functions for those data "
     "structures."]])
 
+(defn user-roam-input [text]
+  (let [user-input (r/atom @text)
+        update-text (debounce (text-on-change text) 1000)]
+    (fn [text]
+      [:textarea {:class "form-control"
+                  :rows 11
+                  :value @user-input
+                  :on-change
+                  (fn [e]
+                    ((text-on-change user-input) e)
+                    (update-text e))}])))
+
 (defn parse-example [text]
-  [:div
-   [:p
-    "The listed elapsed times are the actual runtimes of the "
-    "parsing & serialization work done in your browser. Changing "
-    "the the top-most text area will result in all parsed trees "
-    "being updated, whereas updating either of the bottom two for "
-    "changing the in-place update only recalculates the bottom-most "
-    "text."]
-   [:textarea {:class "form-control"
-               :rows 11
-               :value @text :on-change (text-on-change text)}]
-   [:pre pre-style
-    [:code (with-out-str (pprint (time (parser/parse @text))))]]])
+  (let []
+    (fn [text]
+      [:div
+       [:p
+        "The listed elapsed times are the actual runtimes of the "
+        "parsing & serialization work done in your browser. Changing "
+        "the the top-most text area will result in all parsed trees "
+        "being updated, whereas updating either of the bottom two for "
+        "changing the in-place update only recalculates the bottom-most "
+        "text."]
+       [user-roam-input text]
+       [:pre pre-style
+        [:code (with-out-str (pprint (time (parser/parse @text))))]]])))
+
+(defn debounced-input [label target]
+  (let [user-input (r/atom @target)
+        update-target (debounce (text-on-change target) 1000)]
+    (fn [label target]
+      [prepended-input
+       label
+       [:input {:style {:flex "1 0"}
+                :type :text
+                :value @user-input
+                :on-change
+                (fn [e]
+                  ((text-on-change user-input) e)
+                  (update-target e))}]])))
 
 (defn update-example [text update-path update-value]
   [:div
@@ -70,19 +97,8 @@ Aliases inside aliases
     " updates can be done with the built-in clojure functions "
     [:code "update"] ", " [:code "update-in"] ", "
     [:code "assoc"] ", " [:code "assoc-in"] ", etc."]
-   [prepended-input
-    "Path"
-    [:input {:style {:flex "1 0"}
-             :type :text
-             :value @update-path
-             :on-change (text-on-change update-path)}]]
-   [prepended-input
-    "Value"
-    [:input {:style {:flex "1 0"}
-             :type :text
-             :value @update-value
-             :on-change (text-on-change update-value)}]]
-
+   [debounced-input "Path" update-path]
+   [debounced-input "Value" update-value]
    [:pre pre-style
     (with-out-str (cljs.pprint/pprint (parser/parse @text)))]
    [:pre pre-style

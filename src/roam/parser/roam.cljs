@@ -81,7 +81,9 @@
 
 (defn parse [s]
   (if-let [^Result res (root-rule s)]
-    (simplify (.-v res))
+    (if (pos? (count (.-s res)))
+      {:text [(apply str s)]}
+      (simplify (.-v res)))
     {:text [(apply str s)]}))
 
 (defmulti tree->str (fn [t]

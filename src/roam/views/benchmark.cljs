@@ -3,7 +3,8 @@
             [reagent.core :as r]
             [roam.parser :as parser]
             [roam.rand :refer [rand-tree]]
-            [roam.views.util :refer [prepended-input pre-style]]))
+            [roam.views.util :refer
+             [debounce prepended-input pre-style]]))
 
 (defn sum-with [f coll]
   (transduce (map f) + 0 coll))
@@ -84,7 +85,11 @@
 (defn view []
   (let [benchmark-runtimes (r/atom [])
         word-count (r/atom 5)
-        do-benchmark (make-benchmark word-count benchmark-runtimes)]
+        do-benchmark
+        (debounce
+         (fn [_e]
+           ((make-benchmark word-count benchmark-runtimes)))
+         500)]
     (fn []
       [:div
        [:h1 {:class "display-4"} "Some Benchmarks"]
