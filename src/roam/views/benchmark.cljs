@@ -24,7 +24,7 @@
    [:tbody
     [:tr
      [:th {:scope "row"} "Total"]
-     [:td (average-with (comp js/parseFloat :runtime) @benchmark-runtimes)]]
+     [:td (sum-with (comp js/parseFloat :runtime) @benchmark-runtimes)]]
     [:tr
      [:th {:scope "row"} "Average"]
      [:td (average-with (comp js/parseFloat :runtime) @benchmark-runtimes)]]
